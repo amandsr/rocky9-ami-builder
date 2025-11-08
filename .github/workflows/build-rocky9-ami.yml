@@ -1,37 +1,39 @@
-name: Build Rocky 9 AWS AMI from ISO
+name: Build Rocky 9 AWS AMI from ISO (two-phase)
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: [self-hosted, linux]  # runs on your VirtualBox VM
-    env:
-    #  AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-    #  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-       AWS_DEFAULT_REGION:    us-east-1
-
+  build-local-qcow2:
+    runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install or update Packer
+      - name: Build local Rocky 9 QCOW2 image
+        working-directory: packer
         run: |
-          if ! command -v packer &>/dev/null; then
-            curl -fsSL https://releases.hashicorp.com/packer/1.14.0/packer_1.14.0_linux_amd64.zip -o packer.zip
-            sudo unzip -o packer.zip -d /usr/local/bin/
-            rm -f packer.zip
-          fi
-          packer --version
+          packer init rocky9-qemu.pkr.hcl
+          packer build rocky9-qemu.pkr.hcl
+      - name: Upload artifact for next phase
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocky9-qcow2
+          path: packer/output-rocky9/rocky9.qcow2*
 
-      - name: Initialize Packer
+  import-to-aws:
+    needs: build-local-qcow2
+    runs-on: [self-hosted, linux]
+    env:
+      #AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:    us-east-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rocky9-qcow2
+          path: packer/output-rocky9/
+      - name: Import image into AWS as AMI
         working-directory: packer
-        run: packer init .
-
-      - name: Validate Template
-        working-directory: packer
-        run: packer validate -var aws_region="${AWS_DEFAULT_REGION}" rocky9-aws.pkr.hcl
-
-      - name: Build AMI
-        working-directory: packer
-        run: packer build -var aws_region="${AWS_DEFAULT_REGION}" rocky9-aws.pkr.hcl
-
+        run: |
+          packer init rocky9-import-ami.pkr.hcl
+          packer build -var aws_region="${AWS_DEFAULT_REGION}" rocky9-import-ami.pkr.hcl
