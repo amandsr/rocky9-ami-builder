@@ -1,45 +1,55 @@
 packer {
+  required_version = ">= 1.8"
   required_plugins {
     qemu = {
+      version = ">= 1.1.4"
       source  = "github.com/hashicorp/qemu"
-      version = ">= 1.1.0"
     }
   }
 }
 
 variable "iso_path" {
+  type    = string
   default = "/home/vagrant/Rocky-9-latest-x86_64-dvd.iso"
 }
 
-source "qemu" "rocky9" {
-  accelerator       = "kvm"
-  iso_url           = "file://${var.iso_path}"
-  iso_checksum      = "8ff2a47e2f3bfe442617fceb7ef289b7b1d2d0502089dbbd505d5368b2b3a90f"
-  output_directory  = "output-rocky9"
-  disk_size         = "10G"
-  memory            = 2048
-  cpus              = 2
-  format            = "qcow2"
-  headless          = true
-  ssh_username      = "ec2-user"
-  ssh_password      = "packer"
-  ssh_timeout       = "30m"
-  http_directory    = "http"
+variable "iso_checksum" {
+  type    = string
+  # Optional: you can use `none` to skip checksum validation for local file
+  default = "8ff2a47e2f3bfe442617fceb7ef289b7b1d2d0502089dbbd505d5368b2b3a90f"
+}
 
-  boot_command = [
-    "<tab> inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<enter>"
+variable "kickstart_file" {
+  type    = string
+  default = "rocky9-ks.cfg"
+}
+
+source "qemu" "rocky9" {
+  name                 = "rocky9-qemu-image"
+  accelerator          = "kvm"
+  format               = "qcow2"
+  disk_size            = "20480M"
+  cpus                 = 2
+  memory               = "4096"
+  net_device           = "virtio-net"
+  headless             = true
+
+  iso_url              = "file://{{user `iso_path`}}"
+  iso_checksum         = var.iso_checksum
+
+  boot_command_sequence = [
+    "<wait5><enter>",
+    "linux inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/{{ user `kickstart_file` }}<enter>"
   ]
+
+  http_directory      = "."
+  ssh_username        = "rocky"
+  ssh_password        = "packer"
+  ssh_timeout         = "20m"
+  shutdown_command    = "sudo shutdown -P now"
+  output_directory    = "output-rocky9"
 }
 
 build {
-  name    = "rocky9-qemu-image"
   sources = ["source.qemu.rocky9"]
-
-  provisioner "shell" {
-    script = "scripts/cleanup_image.sh"
-  }
-
-  post-processor "compress" {
-    output = "rocky9.qcow2.gz"
-  }
 }

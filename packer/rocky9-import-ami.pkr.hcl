@@ -1,34 +1,36 @@
 packer {
+  required_version = ">= 1.8"
   required_plugins {
     amazon = {
+      version = ">= 1.0.3"
       source  = "github.com/hashicorp/amazon"
-      version = ">= 1.1.0"
     }
   }
 }
 
 variable "aws_region" {
-  default = "us-east-1"
+  type = string
 }
 
-variable "image_file" {
-  default = "output-rocky9/rocky9.qcow2"
+variable "qcow2_path" {
+  type = string
 }
 
 source "amazon-import" "rocky9" {
-  region          = var.aws_region
-  ami_name        = "rocky9-golden-{{timestamp}}"
-  description     = "Rocky Linux 9 golden image imported from ISO build"
-  license_type    = "BYOL"
-  tags = {
-    OS    = "RockyLinux"
-    Build = "ISO"
+  region       = var.aws_region
+  name         = "rocky9-byos-ami"
+  description  = "Rocky Linux 9 BYOS AMI built from ISO"
+  license_type = "BYOL"
+
+  disk_container {
+    format = "qcow2"
+    user_bucket {
+      s3_bucket = ""
+      s3_key    = var.qcow2_path
+    }
   }
-  source_ami_file = var.image_file
-  format          = "qcow2"
 }
 
 build {
-  name    = "rocky9-aws-ami"
   sources = ["source.amazon-import.rocky9"]
 }
