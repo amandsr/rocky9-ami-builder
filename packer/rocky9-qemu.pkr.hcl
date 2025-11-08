@@ -14,7 +14,7 @@ variable "iso_path" {
 source "qemu" "rocky9" {
   accelerator       = "kvm"
   iso_url           = "file://${var.iso_path}"
-  iso_checksum      = "sha256:<actual-checksum>"
+  #iso_checksum      = "sha256:<actual-checksum>"
   output_directory  = "output-rocky9"
   disk_size         = "10G"
   memory            = 2048
