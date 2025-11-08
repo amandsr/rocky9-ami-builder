@@ -15,8 +15,7 @@ variable "iso_path" {
 
 variable "iso_checksum" {
   type    = string
-  # Optional: you can use `none` to skip checksum validation for local file
-  default = "8ff2a47e2f3bfe442617fceb7ef289b7b1d2d0502089dbbd505d5368b2b3a90f"
+  default = "8ff2a47e2f3bfe442617fceb7ef289b7b1d2d0502089dbbd505d5368b2b3a90f" # use "sha256:<value>" if you want checksum validation
 }
 
 variable "kickstart_file" {
@@ -25,19 +24,19 @@ variable "kickstart_file" {
 }
 
 source "qemu" "rocky9" {
-  name                 = "rocky9-qemu-image"
-  accelerator          = "kvm"
-  format               = "qcow2"
-  disk_size            = "20480M"
-  cpus                 = 2
-  memory               = "4096"
-  net_device           = "virtio-net"
-  headless             = true
+  accelerator         = "kvm"
+  format              = "qcow2"
+  disk_size           = "20480M"
+  cpus                = 2
+  memory              = "4096"
+  net_device          = "virtio-net"
+  headless            = true
 
-  iso_url              = "file://{{user `iso_path`}}"
-  iso_checksum         = var.iso_checksum
+  iso_url             = "file://{{user `iso_path`}}"
+  iso_checksum        = var.iso_checksum
 
-  boot_command_sequence = [
+  # Correct modern argument
+  boot_command = [
     "<wait5><enter>",
     "linux inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/{{ user `kickstart_file` }}<enter>"
   ]
@@ -51,5 +50,6 @@ source "qemu" "rocky9" {
 }
 
 build {
+  name    = "rocky9-qcow2"
   sources = ["source.qemu.rocky9"]
 }
