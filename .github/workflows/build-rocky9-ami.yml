@@ -1,0 +1,37 @@
+name: Build Rocky 9 AWS AMI from ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux]  # runs on your VirtualBox VM
+    env:
+    #  AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+       AWS_DEFAULT_REGION:    us-east-1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or update Packer
+        run: |
+          if ! command -v packer &>/dev/null; then
+            curl -fsSL https://releases.hashicorp.com/packer/1.14.0/packer_1.14.0_linux_amd64.zip -o packer.zip
+            sudo unzip -o packer.zip -d /usr/local/bin/
+            rm -f packer.zip
+          fi
+          packer --version
+
+      - name: Initialize Packer
+        working-directory: packer
+        run: packer init .
+
+      - name: Validate Template
+        working-directory: packer
+        run: packer validate -var aws_region="${AWS_DEFAULT_REGION}" rocky9-aws.pkr.hcl
+
+      - name: Build AMI
+        working-directory: packer
+        run: packer build -var aws_region="${AWS_DEFAULT_REGION}" rocky9-aws.pkr.hcl
+
